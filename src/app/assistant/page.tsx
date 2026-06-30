@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { DashboardLayout } from '@/components/dashboard/layout';
 import { createClientSupabase } from '@/lib/supabase';
 
@@ -22,6 +23,7 @@ export default function AssistantPage() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +39,15 @@ export default function AssistantPage() {
 
     checkAuth();
   }, [supabase, router]);
+
+  // Fetch tasks for matching links in assistant replies
+  useEffect(() => {
+    const fetchTasks = async () => {
+      const { data } = await supabase.from('tasks').select('*');
+      if (data) setTasks(data);
+    };
+    fetchTasks();
+  }, [supabase]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -68,6 +79,10 @@ export default function AssistantPage() {
 
       const data = await response.json();
       setMessages((prev) => [...prev, data.data]);
+      
+      // Refresh tasks in case new ones were added
+      const { data: updatedTasks } = await supabase.from('tasks').select('*');
+      if (updatedTasks) setTasks(updatedTasks);
     } catch (error) {
       console.error('Error:', error);
       setMessages((prev) => [
@@ -80,6 +95,144 @@ export default function AssistantPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper using regular expressions to format message text effectively
+  const formatText = (text: string) => {
+    if (!text) return '';
+
+    const lines = text.split('\n');
+
+    return lines.map((line, lineIdx) => {
+      // 1. Detect list item
+      const listMatch = line.match(/^\s*[-\*]\s+(.*)$/);
+      const isListItem = !!listMatch;
+      let content = isListItem ? listMatch[1] : line;
+
+      let parts: (string | React.ReactNode)[] = [content];
+
+      // 2. Scan and replace exact task titles with links
+      if (tasks.length > 0) {
+        // Sort tasks by length to prevent partial matching conflicts
+        const sortedTasks = [...tasks].sort((a, b) => b.title.length - a.title.length);
+
+        sortedTasks.forEach((task) => {
+          const titleEscaped = task.title.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          // Match either "Title", **Title**, or Title (word boundaries)
+          const regex = new RegExp(`("(${titleEscaped})")|(\\*\\*(${titleEscaped})\\*\\*)`, 'gi');
+
+          parts = parts.flatMap((part) => {
+            if (typeof part !== 'string') return [part];
+
+            const result: (string | React.ReactNode)[] = [];
+            let lastIndex = 0;
+            let match;
+
+            regex.lastIndex = 0;
+            while ((match = regex.exec(part)) !== null) {
+              const matchIndex = match.index;
+              const matchedText = match[0];
+
+              if (matchIndex > lastIndex) {
+                result.push(part.substring(lastIndex, matchIndex));
+              }
+
+              result.push(
+                <Link
+                  key={`${task.id}-${matchIndex}`}
+                  href={`/tasks/${task.id}`}
+                  className="text-primary font-bold hover:underline underline-offset-4 cursor-pointer"
+                >
+                  {matchedText.replace(/[\*"]/g, '')}
+                </Link>
+              );
+
+              lastIndex = regex.lastIndex;
+            }
+
+            if (lastIndex < part.length) {
+              result.push(part.substring(lastIndex));
+            }
+
+            return result;
+          });
+        });
+      }
+
+      // 3. Scan and convert bold markers **text** into strong tags
+      parts = parts.flatMap((part) => {
+        if (typeof part !== 'string') return [part];
+
+        const boldRegex = /\*\*(.*?)\*\*/g;
+        const result: (string | React.ReactNode)[] = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = boldRegex.exec(part)) !== null) {
+          const matchIndex = match.index;
+          if (matchIndex > lastIndex) {
+            result.push(part.substring(lastIndex, matchIndex));
+          }
+          result.push(
+            <strong key={matchIndex} className="font-bold text-text">
+              {match[1]}
+            </strong>
+          );
+          lastIndex = boldRegex.lastIndex;
+        }
+
+        if (lastIndex < part.length) {
+          result.push(part.substring(lastIndex));
+        }
+        return result;
+      });
+
+      // 4. Scan and convert dates/times/deadlines into styled accent badges
+      const dateRegex = /\b(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)|tomorrow|today|yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/g;
+
+      parts = parts.flatMap((part) => {
+        if (typeof part !== 'string') return [part];
+
+        const result: (string | React.ReactNode)[] = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = dateRegex.exec(part)) !== null) {
+          const matchIndex = match.index;
+          if (matchIndex > lastIndex) {
+            result.push(part.substring(lastIndex, matchIndex));
+          }
+          result.push(
+            <span
+              key={matchIndex}
+              className="px-1.5 py-0.5 mx-0.5 rounded bg-primary/10 border border-primary/20 text-xs font-semibold text-primary"
+            >
+              {match[1]}
+            </span>
+          );
+          lastIndex = dateRegex.lastIndex;
+        }
+
+        if (lastIndex < part.length) {
+          result.push(part.substring(lastIndex));
+        }
+        return result;
+      });
+
+      if (isListItem) {
+        return (
+          <li key={lineIdx} className="ml-4 list-disc text-muted pl-1 mb-1">
+            {parts}
+          </li>
+        );
+      }
+
+      return (
+        <p key={lineIdx} className="min-h-[1rem]">
+          {parts}
+        </p>
+      );
+    });
   };
 
   return (
@@ -101,7 +254,13 @@ export default function AssistantPage() {
                     : 'bg-card border border-surface'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                {message.role === 'user' ? (
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                ) : (
+                  <div className="text-sm space-y-1.5 leading-relaxed">
+                    {formatText(message.content)}
+                  </div>
+                )}
               </div>
             </div>
           ))}
