@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { DashboardLayout } from '@/components/dashboard/layout';
 import { createClientSupabase } from '@/lib/supabase';
 
 interface Message {
@@ -11,55 +9,68 @@ interface Message {
   content: string;
 }
 
-export default function AssistantPage() {
-  const router = useRouter();
-  const supabase = createClientSupabase();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content:
-        "Good morning! I'm your AI Executive Assistant. I'm here to help you manage your commitments, analyze priorities, and create actionable plans. What can I help you with today?",
-    },
-  ]);
+export function AssistantOverlay() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
+  const supabase = createClientSupabase();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load chat history from localStorage on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push('/auth/login');
+    const saved = localStorage.getItem('dura_chat_history');
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved));
+      } catch (e) {
+        setMessages([
+          {
+            role: 'assistant',
+            content: "Hi! I'm DURA, your AI Executive Assistant. Ask me anything or tell me to schedule a task!",
+          },
+        ]);
       }
-    };
+    } else {
+      setMessages([
+        {
+          role: 'assistant',
+          content: "Hi! I'm DURA, your AI Executive Assistant. Ask me anything or tell me to schedule a task!",
+        },
+      ]);
+    }
+  }, []);
 
-    checkAuth();
-  }, [supabase, router]);
+  // Save chat history to localStorage when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('dura_chat_history', JSON.stringify(messages));
+    }
+  }, [messages]);
 
-  // Fetch tasks for matching links in assistant replies
+  // Fetch tasks for matching links
   useEffect(() => {
     const fetchTasks = async () => {
       const { data } = await supabase.from('tasks').select('*');
       if (data) setTasks(data);
     };
-    fetchTasks();
-  }, [supabase]);
+    if (isOpen) {
+      fetchTasks();
+    }
+  }, [supabase, isOpen]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isOpen]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     const userMessage: Message = { role: 'user', content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
     setLoading(true);
 
@@ -124,18 +135,11 @@ export default function AssistantPage() {
       }
 
       setMessages((prev) => [...prev, { role: 'assistant', content: responseText }]);
-      
-      // Refresh tasks in case new ones were added
-      const { data: updatedTasks } = await supabase.from('tasks').select('*');
-      if (updatedTasks) setTasks(updatedTasks);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Overlay chat error:', error);
       setMessages((prev) => [
         ...prev,
-        {
-          role: 'assistant',
-          content: 'I encountered an error. Please try again.',
-        },
+        { role: 'assistant', content: 'I encountered an error. Please try again.' },
       ]);
     } finally {
       setLoading(false);
@@ -154,9 +158,9 @@ export default function AssistantPage() {
       if (headerMatch) {
         const level = headerMatch[1].length;
         const textVal = headerMatch[2];
-        const headingClass = level === 1 ? 'text-xl font-extrabold' : level === 2 ? 'text-lg font-bold' : 'text-base font-semibold';
+        const headingClass = level === 1 ? 'text-sm font-extrabold' : level === 2 ? 'text-xs font-bold' : 'text-xs font-semibold';
         return (
-          <div key={lineIdx} className={`${headingClass} text-text mt-3 mb-1 border-l-2 border-primary pl-2`}>
+          <div key={lineIdx} className={`${headingClass} text-text mt-2 mb-0.5 border-l-2 border-primary pl-1.5`}>
             {textVal}
           </div>
         );
@@ -169,14 +173,12 @@ export default function AssistantPage() {
 
       let parts: (string | React.ReactNode)[] = [content];
 
-      // 2. Scan and replace exact task titles with links
+      // 3. Scan and replace exact task titles with links
       if (tasks.length > 0) {
-        // Sort tasks by length to prevent partial matching conflicts
         const sortedTasks = [...tasks].sort((a, b) => b.title.length - a.title.length);
 
         sortedTasks.forEach((task) => {
           const titleEscaped = task.title.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-          // Match either "Title", **Title**, or Title (word boundaries)
           const regex = new RegExp(`("(${titleEscaped})")|(\\*\\*(${titleEscaped})\\*\\*)`, 'gi');
 
           parts = parts.flatMap((part) => {
@@ -217,7 +219,7 @@ export default function AssistantPage() {
         });
       }
 
-      // 3. Scan and convert bold markers **text** into strong tags
+      // 4. Scan and convert bold markers **text** into strong tags
       parts = parts.flatMap((part) => {
         if (typeof part !== 'string') return [part];
 
@@ -245,7 +247,7 @@ export default function AssistantPage() {
         return result;
       });
 
-      // 4. Scan and convert dates/times/deadlines into styled accent badges
+      // 5. Scan and convert dates/times/deadlines into styled accent badges
       const dateRegex = /\b(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)|tomorrow|today|yesterday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/g;
 
       parts = parts.flatMap((part) => {
@@ -263,7 +265,7 @@ export default function AssistantPage() {
           result.push(
             <span
               key={matchIndex}
-              className="px-1.5 py-0.5 mx-0.5 rounded bg-primary/10 border border-primary/20 text-xs font-semibold text-primary"
+              className="px-1 py-0.5 mx-0.5 rounded bg-primary/10 border border-primary/20 text-[10px] font-semibold text-primary"
             >
               {match[1]}
             </span>
@@ -279,83 +281,133 @@ export default function AssistantPage() {
 
       if (isListItem) {
         return (
-          <li key={lineIdx} className="ml-4 list-disc text-muted pl-1 mb-1">
+          <li key={lineIdx} className="ml-3 list-disc text-muted pl-0.5 mb-0.5">
             {parts}
           </li>
         );
       }
 
       return (
-        <p key={lineIdx} className="min-h-[1rem]">
+        <p key={lineIdx} className="min-h-[0.8rem]">
           {parts}
         </p>
       );
     });
   };
 
-  return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto h-[80vh] flex flex-col">
-        <h1 className="text-3xl font-bold mb-6">AI Executive Assistant</h1>
+  const handleClearHistory = () => {
+    localStorage.removeItem('dura_chat_history');
+    setMessages([
+      {
+        role: 'assistant',
+        content: "Hi! I'm DURA, your AI Executive Assistant. Ask me anything or tell me to schedule a task!",
+      },
+    ]);
+  };
 
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto mb-6 space-y-4 bg-surface rounded-lg p-6">
-          {messages.map((message, idx) => (
-            <div
-              key={idx}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-3 rounded-lg ${
-                  message.role === 'user'
-                    ? 'bg-primary text-background'
-                    : 'bg-card border border-surface'
-                }`}
-              >
-                {message.role === 'user' ? (
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                ) : (
-                  <div className="text-sm space-y-1.5 leading-relaxed">
-                    {formatText(message.content)}
-                  </div>
-                )}
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      {/* Chat Window Overlay */}
+      {isOpen && (
+        <div className="w-80 sm:w-96 h-[500px] bg-card border border-surface rounded-xl shadow-2xl flex flex-col mb-4 overflow-hidden transition-all animate-in fade-in slide-in-from-bottom-5">
+          {/* Header */}
+          <div className="px-4 py-3 bg-surface border-b border-surface flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
+                <span className="text-background font-bold text-xs">D</span>
               </div>
+              <span className="font-bold text-sm text-text">DURA Assistant</span>
             </div>
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-card border border-surface px-4 py-3 rounded-lg">
-                <div className="flex gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200" />
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleClearHistory}
+                title="Clear Chat History"
+                className="text-xs text-muted hover:text-primary transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-muted hover:text-text text-lg font-semibold px-1"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-background">
+            {messages.map((message, idx) => (
+              <div
+                key={idx}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[85%] px-3 py-2 rounded-lg text-xs ${
+                    message.role === 'user'
+                      ? 'bg-primary text-background'
+                      : 'bg-card border border-surface leading-relaxed'
+                  }`}
+                >
+                  {message.role === 'user' ? (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {formatText(message.content)}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-card border border-surface px-3 py-2 rounded-lg">
+                  <div className="flex gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-100" />
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce delay-200" />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Footer Form */}
+          <form onSubmit={handleSendMessage} className="p-3 border-t border-surface bg-surface flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask DURA to create a task..."
+              className="input text-xs py-1.5 flex-1"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              className="btn-primary text-xs px-3 py-1.5"
+              disabled={loading || !input.trim()}
+            >
+              Send
+            </button>
+          </form>
         </div>
+      )}
 
-        {/* Input Form */}
-        <form onSubmit={handleSendMessage} className="flex gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me about your tasks, deadlines, or priorities..."
-            className="input flex-1"
-            disabled={loading}
-          />
-          <button type="submit" className="btn-primary px-6" disabled={loading || !input.trim()}>
-            Send
-          </button>
-        </form>
-
-        {/* Help Text */}
-        <p className="text-xs text-muted mt-4 text-center">
-          I can help you analyze priorities, create execution plans, suggest schedules, and answer productivity questions.
-        </p>
-      </div>
-    </DashboardLayout>
+      {/* Floating Toggle Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-14 h-14 bg-primary text-background rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-all duration-200 active:scale-95 group relative"
+      >
+        {isOpen ? (
+          <span className="text-xl font-bold">✕</span>
+        ) : (
+          <div className="flex flex-col items-center">
+            <span className="text-xs font-black tracking-widest leading-none">DURA</span>
+            <span className="absolute -top-1 -right-1 bg-red-500 w-3 h-3 rounded-full border-2 border-background animate-pulse" />
+          </div>
+        )}
+      </button>
+    </div>
   );
 }

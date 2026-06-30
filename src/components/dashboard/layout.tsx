@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth';
 import { createClientSupabase } from '@/lib/supabase';
+import { AssistantOverlay } from './assistant-overlay';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -64,6 +65,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <main className="max-w-7xl mx-auto px-6 py-8">
         {children}
       </main>
+      <AssistantOverlay />
     </div>
   );
 }

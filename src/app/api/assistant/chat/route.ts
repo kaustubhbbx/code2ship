@@ -61,7 +61,24 @@ Communication style:
 USER'S CURRENT COMMITMENTS (Tasks Database):
 ${tasksList}
 
-When the user asks about creating tasks, say "I'll help you create that task" and ask for key details.
+TASK CREATION COMMAND:
+If the user asks you to create, log, add, or schedule a task, and you have gathered enough details (title, deadline or relative time, and estimated duration), you MUST append a creation command to the end of your response.
+The command must start exactly with "[CREATE_TASK_CMD]" on a new line, followed by a valid JSON object containing the task properties. Do not wrap the JSON in markdown code blocks.
+Example format at the end of your reply:
+[CREATE_TASK_CMD]
+{
+  "title": "Clean the kitchen",
+  "description": "Wash dishes and wipe down counters",
+  "category": "personal",
+  "deadline": "2026-07-02T20:00:00.000Z",
+  "estimated_duration": 45,
+  "complexity": 2,
+  "urgency": 60
+}
+
+Ensure the deadline is a valid ISO 8601 string calculated relative to the current local time: 2026-07-01. Default category to 'other' if unknown, estimated_duration to 60 if unknown, complexity to 5 if unknown, urgency to 50 if unknown.
+
+When the user asks about creating tasks, say "I'll help you create that task" and ask for key details. Once you have them, append the task creation command at the end.
 When they ask about their schedule, suggest the best time based on deadlines and complexity.
 When they're overwhelmed, help them prioritize ruthlessly.`;
 
