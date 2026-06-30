@@ -2,7 +2,7 @@
 
 A production-quality, AI-powered executive assistant that prevents users from missing deadlines, assignments, interviews, meetings, and important commitments through proactive prediction, intelligent prioritization, and autonomous scheduling.
 
-Featuring a premium, high-contrast **Black, White, and Orange** minimalist interface and powered by the latest **Google Gemini 3.5 Flash Lite** model.
+Featuring a premium, high-contrast **Black, White, and Orange** minimalist interface and powered by the latest **Google Gemini 3.1 Flash Lite** model.
 
 ---
 
@@ -21,7 +21,7 @@ Featuring a premium, high-contrast **Black, White, and Orange** minimalist inter
 
 *   **Frontend**: Next.js 16, TypeScript, Tailwind CSS 4, Framer Motion
 *   **Backend**: Supabase (PostgreSQL, Auth, Realtime)
-*   **AI Engine**: Google Gemini 3.5 Flash Lite (via `@google/generative-ai`)
+*   **AI Engine**: Google Gemini 3.1 Flash Lite (via `@google/generative-ai`)
 *   **Theme**: High-end minimalist black `#000000` background, dark charcoal surfaces, white text, and vibrant orange `#FF6600` accents.
 
 ---

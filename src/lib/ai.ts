@@ -3,11 +3,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 
 export const geminiFlashModel = () => {
-  return genAI.getGenerativeModel({ model: 'gemini-3.5-flash-lite' });
+  return genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 };
 
 export const geminiFlashLiteModel = () => {
-  return genAI.getGenerativeModel({ model: 'gemini-3.5-flash-lite' });
+  return genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 };
 
 export interface ExtractionResult {

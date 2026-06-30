@@ -179,7 +179,7 @@ export default function SettingsPage() {
               className="input"
             >
               <option value="gemini_live">Gemini Live (Voice)</option>
-              <option value="gemini_flash">Gemini 3.5 Flash Lite (Fast)</option>
+              <option value="gemini_flash">Gemini 3.1 Flash Lite (Fast)</option>
             </select>
             <p className="text-sm text-muted mt-2">Choose your default AI assistant</p>
           </div>
