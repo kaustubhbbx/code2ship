@@ -40,7 +40,12 @@ Return ONLY a valid JSON object with these fields:
   "description": "optional description"
 }
 
-Be precise with dates. If relative dates are mentioned (e.g., "Friday"), calculate the actual date.
+Be precise with dates. Calculate relative dates based on the current date: 2026-07-01.
+If relative dates are mentioned:
+- "tomorrow" = 2026-07-02
+- "next week" / "in a week" = 2026-07-08
+- "in 1 month" / "for 1 month" / "next month" = 2026-08-01
+Always output a valid ISO 8601 datetime string. Never output relative text descriptions in the "deadline" field.
 Categories should be lowercase and single value.
 Urgency: how soon it needs to be done (0=far future, 100=immediate).
 Complexity: how difficult is the task (1=very easy, 10=extremely difficult).`;
