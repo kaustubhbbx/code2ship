@@ -167,12 +167,42 @@ export default function TaskDetailPage() {
                     </div>
                     <h1 className="text-4xl font-bold">{task.title}</h1>
                   </div>
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="btn-secondary text-sm"
-                  >
-                    Edit
-                  </button>
+                  <div className="flex gap-2">
+                    {task.status === 'pending' && (
+                      <button
+                        onClick={() => handleUpdate({ status: 'in_progress' })}
+                        className="btn-primary text-sm px-4 py-2"
+                        disabled={isUpdating}
+                      >
+                        Start Task
+                      </button>
+                    )}
+                    {task.status === 'in_progress' && (
+                      <button
+                        onClick={() => handleUpdate({ status: 'completed' })}
+                        className="bg-white text-black hover:bg-neutral-200 font-medium text-sm px-4 py-2 rounded-lg transition-colors"
+                        disabled={isUpdating}
+                      >
+                        Complete Task
+                      </button>
+                    )}
+                    {(task.status === 'completed' || task.status === 'cancelled') && (
+                      <button
+                        onClick={() => handleUpdate({ status: 'in_progress' })}
+                        className="btn-secondary text-sm px-4 py-2"
+                        disabled={isUpdating}
+                      >
+                        Reopen Task
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="btn-secondary text-sm"
+                      disabled={isUpdating}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </div>
 
                 {task.description && (

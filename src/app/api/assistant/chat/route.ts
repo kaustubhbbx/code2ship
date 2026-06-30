@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createServerSupabase } from '@/lib/supabase';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 
@@ -10,6 +11,32 @@ export async function POST(request: NextRequest) {
     if (!message || !message.trim()) {
       return NextResponse.json({ error: 'No message provided' }, { status: 400 });
     }
+
+    const supabase = await createServerSupabase();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Query active tasks and their risk scores
+    const { data: tasksData } = await supabase
+      .from('tasks')
+      .select('*, risk_scores(score)')
+      .eq('user_id', user.id);
+
+    // Format tasks into context
+    const tasksList = tasksData && tasksData.length > 0
+      ? tasksData
+          .map(
+            (t: any) =>
+              `- [Status: ${t.status}] "${t.title}" (Category: ${t.category}, Deadline: ${new Date(t.deadline).toLocaleDateString()}, Estimated duration: ${t.estimated_duration} mins, Complexity: ${t.complexity}/10, Priority: ${t.priority}, Urgency: ${t.urgency}%, Risk Score: ${t.risk_scores?.score ?? 'Not calculated'})`
+          )
+          .join('\n')
+      : 'No current tasks on the list.';
 
     const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 
@@ -30,6 +57,9 @@ Communication style:
 - Strategic and forward-thinking
 - Never be generic - reference specific tasks and deadlines when possible
 - Provide concrete next steps
+
+USER'S CURRENT COMMITMENTS (Tasks Database):
+${tasksList}
 
 When the user asks about creating tasks, say "I'll help you create that task" and ask for key details.
 When they ask about their schedule, suggest the best time based on deadlines and complexity.
