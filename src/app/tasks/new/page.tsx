@@ -103,7 +103,19 @@ export default function NewTaskPage() {
                 </button>
               )}
             </div>
-            <TaskForm onSubmit={handleCreateTask} isLoading={isLoading} />
+            <TaskForm 
+              onSubmit={handleCreateTask} 
+              isLoading={isLoading} 
+              initialTask={extractedData ? {
+                title: extractedData.title,
+                description: extractedData.description || '',
+                category: extractedData.category as any,
+                deadline: extractedData.deadline,
+                estimated_duration: extractedData.estimated_duration,
+                complexity: extractedData.complexity,
+                urgency: extractedData.urgency,
+              } as any : undefined} 
+            />
           </div>
         )}
       </div>
