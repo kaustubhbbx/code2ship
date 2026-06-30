@@ -19,7 +19,48 @@ export default function NewTaskPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractionResult | null>(null);
 
-  const handleAIExtract = (data: ExtractionResult) => {
+  const handleAIExtract = async (data: ExtractionResult) => {
+    setIsLoading(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push('/auth/login');
+        return;
+      }
+
+      const { data: created, error } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: user.id,
+          title: data.title,
+          description: data.description || '',
+          category: data.category as any,
+          deadline: data.deadline,
+          estimated_duration: data.estimated_duration,
+          complexity: data.complexity,
+          urgency: data.urgency,
+          status: 'pending',
+          priority: 'medium',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      router.push(`/tasks/${created.id}`);
+    } catch (error) {
+      console.error('Error creating task:', error);
+      alert('Failed to save AI-extracted task: ' + (error as any).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAIEdit = (data: ExtractionResult) => {
     setExtractedData(data);
     setMode('manual');
   };
@@ -49,7 +90,6 @@ export default function NewTaskPage() {
 
       if (error) throw error;
 
-      // Redirect to task detail
       router.push(`/tasks/${data.id}`);
     } catch (error) {
       console.error('Error creating task:', error);
@@ -74,7 +114,7 @@ export default function NewTaskPage() {
           <>
             <div className="card mb-6">
               <h2 className="text-2xl font-bold mb-4">AI Task Creation</h2>
-              <AITaskExtraction onExtract={handleAIExtract} isLoading={isLoading} />
+              <AITaskExtraction onExtract={handleAIExtract} onEdit={handleAIEdit} isLoading={isLoading} />
             </div>
 
             <div className="text-center py-8">

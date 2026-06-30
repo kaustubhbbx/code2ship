@@ -5,10 +5,11 @@ import { ExtractionResult } from '@/lib/ai';
 
 interface AITaskExtractionProps {
   onExtract: (extractedData: ExtractionResult) => void;
+  onEdit?: (extractedData: ExtractionResult) => void;
   isLoading?: boolean;
 }
 
-export function AITaskExtraction({ onExtract, isLoading }: AITaskExtractionProps) {
+export function AITaskExtraction({ onExtract, onEdit, isLoading }: AITaskExtractionProps) {
   const [input, setInput] = useState('');
   const [extractedData, setExtractedData] = useState<ExtractionResult | null>(null);
   const [error, setError] = useState('');
@@ -43,6 +44,14 @@ export function AITaskExtraction({ onExtract, isLoading }: AITaskExtractionProps
   const handleUseExtraction = () => {
     if (extractedData) {
       onExtract(extractedData);
+      setInput('');
+      setExtractedData(null);
+    }
+  };
+
+  const handleEditExtraction = () => {
+    if (extractedData && onEdit) {
+      onEdit(extractedData);
       setInput('');
       setExtractedData(null);
     }
@@ -138,20 +147,27 @@ export function AITaskExtraction({ onExtract, isLoading }: AITaskExtractionProps
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleUseExtraction}
               className="btn-primary flex-1"
               disabled={isLoading}
             >
-              Use This Task
+              Save Directly
             </button>
             <button
-              onClick={() => setExtractedData(null)}
+              onClick={handleEditExtraction}
               className="btn-secondary flex-1"
               disabled={isLoading}
             >
-              Try Again
+              Edit Details
+            </button>
+            <button
+              onClick={() => setExtractedData(null)}
+              className="btn-secondary flex-shrink-0"
+              disabled={isLoading}
+            >
+              Cancel
             </button>
           </div>
         </div>
